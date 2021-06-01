@@ -88,6 +88,7 @@ func (dev *device) Close() {
 		dev.br.unregister <- dev
 
 		log.Info().Msgf("Device '%s' closed", dev.id)
+		PushPlusMsg("dev_offline", dev.id)
 	}
 }
 

@@ -78,6 +78,7 @@ func (br *broker) run() {
 				} else {
 					br.devices[devid] = c
 					log.Info().Msg("New device: " + devid)
+					PushPlusMsg("dev_online", "New device: "+devid)
 				}
 
 				c.WriteMsg(msgTypeRegister, append([]byte{err}, msg...))
