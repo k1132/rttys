@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -63,6 +64,7 @@ func PushPlusMsg(title string, content string) {
 
 	//连接字符串
 	connString := fmt.Sprintf("http://pushplus.hxtrip.com/send?token=662684ae0503491a9bf551622202503e&title=%s&content=%s&template=html&topic=TEST", title, content)
+	connString.strings.Replace(connString, " ", "", -1)
 	fmt.Println(connString)
 	PushPlusGet(connString)
 
