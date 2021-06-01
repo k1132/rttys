@@ -1,18 +1,15 @@
 package main
 
 import (
-	"database/sql"
 	"embed"
-	"fmt"
 	"net"
 	"net/http"
 	"path"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/mattn/go-sqlite3"
+	jsoniter "github.com/json-iterator/go"
 	"github.com/rs/zerolog/log"
 	"github.com/zhaojh329/rttys/cache"
 	"github.com/zhaojh329/rttys/config"
@@ -20,8 +17,8 @@ import (
 )
 
 type credentials struct {
-	Username string `json:"username"`
 	Password string `json:"password"`
+	Username string `json:"username"`
 }
 
 var httpSessions *cache.Cache
@@ -36,22 +33,12 @@ func allowOrigin(w http.ResponseWriter) {
 }
 
 func httpLogin(cfg *config.Config, creds *credentials) bool {
-	if creds.Username == "" || creds.Password == "" {
+	if cfg.HTTPUsername != creds.Username {
 		return false
 	}
 
-	db, err := sql.Open("sqlite3", cfg.DB)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return false
-	}
-	defer db.Close()
-
-	cnt := 0
-
-	db.QueryRow("SELECT COUNT(*) FROM account WHERE username = ? AND password = ?", creds.Username, creds.Password).Scan(&cnt)
-	if cnt == 0 {
-		return false
+	if cfg.HTTPPassword != "" {
+		return cfg.HTTPPassword == creds.Password
 	}
 
 	return true
@@ -66,12 +53,10 @@ func authorizedDev(devid string, cfg *config.Config) bool {
 	return ok
 }
 
-func httpAuth(cfg *config.Config, c *gin.Context) bool {
-	if !cfg.LocalAuth {
-		addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
-		if addr.IP.IsLoopback() {
-			return true
-		}
+func httpAuth(c *gin.Context) bool {
+	addr, _ := net.ResolveTCPAddr("tcp", c.Request.RemoteAddr)
+	if addr.IP.IsLoopback() {
+		return true
 	}
 
 	cookie, err := c.Cookie("sid")
@@ -99,60 +84,28 @@ func httpStart(br *broker) {
 			return
 		}
 
-		if !httpAuth(cfg, c) {
+		if !httpAuth(c) {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		}
 	})
 
-	authorized.GET("/fontsize", func(c *gin.Context) {
-		db, err := sql.Open("sqlite3", cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		value := "16"
-
-		db.QueryRow("SELECT value FROM config WHERE name = 'FontSize'").Scan(&value)
-
-		FontSize, _ := strconv.Atoi(value)
-
-		c.JSON(http.StatusOK, gin.H{"size": FontSize})
+	authorized.GET("/fontsize/:devid", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"size": cfg.FontSize})
 	})
 
-	authorized.POST("/fontsize", func(c *gin.Context) {
-		data := make(map[string]int)
-
-		err := c.BindJSON(&data)
+	authorized.POST("/fontsize/:devid", func(c *gin.Context) {
+		type Resp struct {
+			Size int `json:"size"`
+		}
+		var r Resp
+		err := c.BindJSON(&r)
 		if err != nil {
 			c.Status(http.StatusBadRequest)
 			return
 		}
 
-		size, ok := data["size"]
-		if !ok {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := sql.Open("sqlite3", cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		if size < 12 {
-			size = 12
-		}
-
-		db.Exec("DELETE FROM config WHERE name = 'FontSize'")
-		db.Exec("INSERT INTO config values('FontSize',?)", fmt.Sprintf("%d", size))
-
-		c.Status(http.StatusOK)
+		cfg.FontSize = r.Size
+		c.String(http.StatusOK, "OK")
 	})
 
 	authorized.GET("/connect/:devid", func(c *gin.Context) {
@@ -194,7 +147,7 @@ func httpStart(br *broker) {
 	})
 
 	r.GET("/authorized/:devid", func(c *gin.Context) {
-		authorized := authorizedDev(c.Param("devid"), cfg) || httpAuth(cfg, c)
+		authorized := authorizedDev(c.Param("devid"), cfg) || httpAuth(c)
 		c.JSON(http.StatusOK, gin.H{
 			"authorized": authorized,
 		})
@@ -203,7 +156,7 @@ func httpStart(br *broker) {
 	r.POST("/signin", func(c *gin.Context) {
 		var creds credentials
 
-		err := c.BindJSON(&creds)
+		err := jsoniter.NewDecoder(c.Request.Body).Decode(&creds)
 		if err != nil {
 			c.Status(http.StatusBadRequest)
 			return
@@ -214,67 +167,11 @@ func httpStart(br *broker) {
 			httpSessions.Set(sid, true, 0)
 
 			c.SetCookie("sid", sid, 0, "", "", false, true)
-
-			c.JSON(http.StatusOK, gin.H{
-				"sid":      sid,
-				"username": creds.Username,
-			})
+			c.String(http.StatusOK, sid)
 			return
 		}
 
 		c.Status(http.StatusForbidden)
-	})
-
-	r.GET("/alive", func(c *gin.Context) {
-		if !httpAuth(cfg, c) {
-			c.AbortWithStatus(http.StatusUnauthorized)
-		} else {
-			c.Status(http.StatusOK)
-		}
-	})
-
-	r.GET("/signout", func(c *gin.Context) {
-		cookie, err := c.Cookie("sid")
-		if err != nil || !httpSessions.Have(cookie) {
-			return
-		}
-
-		httpSessions.Del(cookie)
-
-		c.Status(http.StatusOK)
-	})
-
-	r.POST("/signup", func(c *gin.Context) {
-		var creds credentials
-
-		err := c.BindJSON(&creds)
-		if err != nil {
-			c.Status(http.StatusBadRequest)
-			return
-		}
-
-		db, err := sql.Open("sqlite3", cfg.DB)
-		if err != nil {
-			log.Error().Msg(err.Error())
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer db.Close()
-
-		_, err = db.Exec("INSERT INTO account values(?,?)", creds.Username, creds.Password)
-		if err != nil {
-			log.Error().Msg(err.Error())
-
-			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				c.Status(http.StatusForbidden)
-			} else {
-				c.Status(http.StatusInternalServerError)
-			}
-
-			return
-		}
-
-		c.Status(http.StatusOK)
 	})
 
 	r.NoRoute(func(c *gin.Context) {

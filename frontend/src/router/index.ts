@@ -42,15 +42,12 @@ router.beforeEach((to, from, next) => {
     return;
   }
 
-  if (to.path !== '/login') {
-    Vue.axios.get('/alive').then(() => {
-      next();
-    }).catch(() => {
-      router.push('/login');
-    });
-  } else {
-    next();
+  if (to.path !== '/login' && !sessionStorage.getItem('rtty-sid')) {
+    router.push('/login');
+    return;
   }
+
+  next();
 });
 
 export default router

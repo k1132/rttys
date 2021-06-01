@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/x509"
 	"encoding/binary"
-	"time"
 
 	"github.com/gorilla/websocket"
 	jsoniter "github.com/json-iterator/go"
@@ -78,17 +77,15 @@ func (br *broker) run() {
 				} else {
 					br.devices[devid] = c
 					log.Info().Msg("New device: " + devid)
-					PushPlusMsg("dev_online", "New device: "+devid)
+					PushPlusMsg("DEV_ONLINE", "New device: "+devid)
 				}
 
 				c.WriteMsg(msgTypeRegister, append([]byte{err}, msg...))
 			} else {
 				if dev, ok := br.devices[devid]; ok {
 					if _, ok := br.waitLoginUsers[devid]; ok {
-						log.Error().Msg("Another user is logining the device, wait...")
-						time.AfterFunc(time.Millisecond*10, func() {
-							br.register <- c
-						})
+						userLoginAck(loginErrorBusy, c)
+						log.Error().Msg("login fail, device busy")
 					} else {
 						br.waitLoginUsers[devid] = c
 						dev.WriteMsg(msgTypeLogin, []byte{})

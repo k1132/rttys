@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"runtime"
@@ -14,23 +13,15 @@ import (
 	"github.com/zhaojh329/rttys/version"
 )
 
-func initDb(cfg *config.Config) {
-	db, err := sql.Open("sqlite3", cfg.DB)
-	if err != nil {
-		log.Error().Msg(err.Error())
-		return
-	}
-	defer db.Close()
-
-	db.Exec("CREATE TABLE IF NOT EXISTS config(name TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)")
-
-	db.Exec("CREATE TABLE IF NOT EXISTS account(username TEXT PRIMARY KEY NOT NULL, password TEXT NOT NULL)")
-}
-
 func runRttys(c *cli.Context) {
 	rlog.SetPath(c.String("log"))
 
 	cfg := config.Parse(c)
+
+	if cfg.HTTPUsername == "" {
+		fmt.Println("You must configure the http username by commandline or config file")
+		os.Exit(1)
+	}
 
 	log.Info().Msg("Go Version: " + runtime.Version())
 	log.Info().Msgf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
@@ -47,8 +38,6 @@ func runRttys(c *cli.Context) {
 	if buildTime != "" {
 		log.Info().Msg("Build Time: " + version.BuildTime())
 	}
-
-	initDb(cfg)
 
 	br := newBroker(cfg)
 	go br.run()
@@ -141,15 +130,6 @@ func main() {
 						Name:  "white-list",
 						Value: "",
 						Usage: "white list(device IDs separated by spaces or *)",
-					},
-					&cli.StringFlag{
-						Name:  "db",
-						Value: "rttys.db",
-						Usage: "sqlite3 database path",
-					},
-					&cli.BoolFlag{
-						Name:  "local-auth",
-						Usage: "need auth for local",
 					},
 				},
 				Action: func(c *cli.Context) error {
