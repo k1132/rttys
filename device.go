@@ -30,7 +30,7 @@ const (
 	msgTypeWeb       = 0x08
 )
 
-const heartbeatInterval = time.Second * 5
+const heartbeatInterval = time.Second * 15
 
 type device struct {
 	br         *broker
