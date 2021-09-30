@@ -77,7 +77,7 @@ func userLoginAck(code int, c client.Client) {
 }
 
 func (u *user) keepAlive(ctx context.Context) {
-	ticker := time.NewTicker(time.Second * 5)
+	ticker := time.NewTicker(time.Second * 10)
 	defer ticker.Stop()
 
 	for {
