@@ -58,16 +58,25 @@ func PushPlusPost(url string, data interface{}, contentType string) string {
 	return string(result)
 }
 
-func PushPlusMsg(title string, content string) {
+func PushPlusMsg(br *broker,title string, devid_str string) {
 	//var title = "go_test"
-	//var content = "gotestcontent"
+	//var devid_str = "gotestcontent"
 	cfg := br.cfg
 	//连接字符串
-	if cfg.PushToken != "" {
-		connString := fmt.Sprintf("http://pushplus.hxtrip.com/send?token=%s&title=%s&content=%s&template=html&topic=%s", cfg.PushToken,title, content,cfg.PushTopic)
-		connString = strings.Replace(connString, " ", "", -1)
-		fmt.Println(connString)
-		PushPlusGet(connString)
+	if cfg.PushString != "" {
+		if cfg.PushId != "" {
+			if cfg.PushId == devid_str {
+				connString := fmt.Sprintf("%s%s-%s", cfg.PushString,title, devid_str)
+				connString = strings.Replace(connString, " ", "", -1)
+				fmt.Println(connString)
+				PushPlusGet(connString)
+			}
+		} else {
+			connString := fmt.Sprintf("%s%s-%s", cfg.PushString,title, devid_str)
+			connString = strings.Replace(connString, " ", "", -1)
+			fmt.Println(connString)
+			PushPlusGet(connString)
+		}
 	}
 
 }

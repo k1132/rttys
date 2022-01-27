@@ -31,6 +31,7 @@ const (
 )
 
 const heartbeatInterval = time.Second * 5
+//var g_br *broker   
 
 type device struct {
 	br         *broker
@@ -88,7 +89,8 @@ func (dev *device) Close() {
 		dev.br.unregister <- dev
 
 		log.Info().Msgf("Device '%s' closed", dev.id)
-		PushPlusMsg("DEV_OFFLINE", "device offline: "+dev.id)
+		
+		PushPlusMsg(dev.br,"DEV_OFFLINE", dev.id)
 	}
 }
 
@@ -258,7 +260,7 @@ func (dev *device) readLoop() {
 
 func listenDevice(br *broker) {
 	cfg := br.cfg
-
+	//g_br = br
 	ln, err := net.Listen("tcp", cfg.AddrDev)
 	if err != nil {
 		log.Fatal().Msg(err.Error())

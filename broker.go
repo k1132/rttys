@@ -57,6 +57,7 @@ func newBroker(cfg *config.Config) *broker {
 }
 
 func (br *broker) run() {
+	
 	for {
 		select {
 		case c := <-br.register:
@@ -77,7 +78,7 @@ func (br *broker) run() {
 				} else {
 					br.devices[devid] = c
 					log.Info().Msg("New device: " + devid)
-					PushPlusMsg("DEV_ONLINE", "New device: "+devid)
+					PushPlusMsg(br,"DEV_ONLINE", devid)
 				}
 
 				c.WriteMsg(msgTypeRegister, append([]byte{err}, msg...))
