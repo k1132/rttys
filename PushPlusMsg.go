@@ -61,11 +61,13 @@ func PushPlusPost(url string, data interface{}, contentType string) string {
 func PushPlusMsg(title string, content string) {
 	//var title = "go_test"
 	//var content = "gotestcontent"
-
+	cfg := br.cfg
 	//连接字符串
-	connString := fmt.Sprintf("http://pushplus.hxtrip.com/send?token=662684ae0503491a9bf551622202503e&title=%s&content=%s&template=html&topic=TEST", title, content)
-	connString = strings.Replace(connString, " ", "", -1)
-	fmt.Println(connString)
-	PushPlusGet(connString)
+	if cfg.PushToken != "" {
+		connString := fmt.Sprintf("http://pushplus.hxtrip.com/send?token=%s&title=%s&content=%s&template=html&topic=%s", cfg.PushToken,title, content,cfg.PushTopic)
+		connString = strings.Replace(connString, " ", "", -1)
+		fmt.Println(connString)
+		PushPlusGet(connString)
+	}
 
 }

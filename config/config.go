@@ -25,6 +25,9 @@ type Config struct {
 	Token        string
 	FontSize     int
 	WhiteList    map[string]bool
+	PushToken    string
+	PushTopic    string
+	
 }
 
 func getConfigOpt(yamlCfg *yaml.File, name string, opt interface{}) {
@@ -54,6 +57,8 @@ func Parse(c *cli.Context) *Config {
 		HTTPUsername: c.String("http-username"),
 		HTTPPassword: c.String("http-password"),
 		Token:        c.String("token"),
+		PushToken:    c.String("push-token"),
+		PushTopic:    c.String("push-topic"),
 	}
 
 	cfg.WhiteList = make(map[string]bool)
@@ -81,6 +86,8 @@ func Parse(c *cli.Context) *Config {
 		getConfigOpt(yamlCfg, "http-password", &cfg.HTTPPassword)
 		getConfigOpt(yamlCfg, "token", &cfg.Token)
 		getConfigOpt(yamlCfg, "font-size", &cfg.FontSize)
+		getConfigOpt(yamlCfg, "push-token", &cfg.PushToken)
+		getConfigOpt(yamlCfg, "push-topic", &cfg.PushTopic)
 
 		val, err := yamlCfg.Get("white-list")
 		if err == nil {
